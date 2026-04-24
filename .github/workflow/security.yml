@@ -1,6 +1,5 @@
 name: DevSecOps Pipeline
 
-# Запускаем пайплайн при каждом push в ветку main и при Pull Request
 on:
   push:
     branches: [ "main" ]
@@ -8,48 +7,69 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # 1. Сканирование кода (SAST) с помощью Gosec
+  # 1. SAST: Gosec
   gosec-sast:
     name: Run Gosec SAST
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
         with:
-          # Проверяем папку go-app, выводим отчет в консоль
           args: ./go-app/...
 
-  # 2. Сканирование кода (SAST) с помощью Semgrep
+  # 2. SAST: Semgrep
   semgrep-sast:
     name: Run Semgrep SAST
     runs-on: ubuntu-latest
-    # Используем официальный контейнер Semgrep
     container:
       image: returntocorp/semgrep
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Run Semgrep
         run: semgrep scan --config auto ./go-app
 
-  # 3. Анализ зависимостей (SCA) с помощью Trivy
+  # 3. SCA: Trivy
   trivy-sca:
     name: Run Trivy SCA
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: './go-app'
           format: 'table'
-          # Падаем, если найдены High или Critical уязвимости
           exit-code: '1'
           severity: 'HIGH,CRITICAL'
+
+  # 4. DAST: OWASP ZAP
+  zap-dast:
+    name: Run OWASP ZAP DAST
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21' # Устанавливаем Go на виртуальную машину
+
+      - name: Build and Run Go Server
+        working-directory: ./go-app
+        # Компилируем сервер, запускаем в фоне (&) и ждем 5 секунд, чтобы он точно поднялся
+        run: |
+          go build -o server cmd/server/main.go
+          ./server &
+          sleep 5
+
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8081' # Бьем по локальному серверу внутри GitHub Runner
+          fail_action: true               # Роняем пайплайн, если найдены уязвимости

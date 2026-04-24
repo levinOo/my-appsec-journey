@@ -18,12 +18,12 @@ func main() {
 	db.InitDB()
 
 	// Регистрация уязвимых роутов
-	http.HandleFunc("/user", handlers.GetUser)
-	http.HandleFunc("/ping", handlers.PingHandler)
-	http.HandleFunc("/download", handlers.DownloadHandler)
+	http.HandleFunc("/api/user", handlers.GetUser)
+	http.HandleFunc("/api/ping", handlers.PingHandler)
+	http.HandleFunc("/api/download", handlers.DownloadHandler)
 
-	fmt.Println("Intentionally Vulnerable Server is running on port 8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	fmt.Println("Intentionally Vulnerable Server is running on port 8081...")
+	if err := http.ListenAndServe(":8081", nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
