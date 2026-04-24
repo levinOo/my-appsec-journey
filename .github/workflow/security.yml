@@ -1,0 +1,55 @@
+name: DevSecOps Pipeline
+
+# Запускаем пайплайн при каждом push в ветку main и при Pull Request
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # 1. Сканирование кода (SAST) с помощью Gosec
+  gosec-sast:
+    name: Run Gosec SAST
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          # Проверяем папку go-app, выводим отчет в консоль
+          args: ./go-app/...
+
+  # 2. Сканирование кода (SAST) с помощью Semgrep
+  semgrep-sast:
+    name: Run Semgrep SAST
+    runs-on: ubuntu-latest
+    # Используем официальный контейнер Semgrep
+    container:
+      image: returntocorp/semgrep
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        run: semgrep scan --config auto ./go-app
+
+  # 3. Анализ зависимостей (SCA) с помощью Trivy
+  trivy-sca:
+    name: Run Trivy SCA
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './go-app'
+          format: 'table'
+          # Падаем, если найдены High или Critical уязвимости
+          exit-code: '1'
+          severity: 'HIGH,CRITICAL'
